@@ -29,6 +29,7 @@ pico_sdk_init()
 
 add_executable(${PROJECT}
     src/main.c
+    src/utils.c
 )
 
 pico_set_program_name(${PROJECT} "${PROJECT}")
