@@ -30,6 +30,7 @@ pico_sdk_init()
 add_executable(${PROJECT}
     src/main.c
     src/utils.c
+    src/adc_wrapper.c
 )
 
 pico_set_program_name(${PROJECT} "${PROJECT}")
@@ -44,9 +45,9 @@ target_include_directories(${PROJECT} PRIVATE
 
 target_link_libraries(${PROJECT}
     pico_stdlib
+    hardware_adc
     # hardware_pwm
     # hardware_i2c
-    # hardware_adc
     # hardware_timer
 )
 
