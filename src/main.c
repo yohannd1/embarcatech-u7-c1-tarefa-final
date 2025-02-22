@@ -8,7 +8,9 @@
 
 #include "utils.h"
 #include "adc_wrapper.h"
+#include "buzzer.h"
 
+#define BUZZER_PIN 21
 #define JOYSTICK_X_PIN 27
 #define JOYSTICK_X_INPUT 1
 #define JOYSTICK_Y_PIN 26
@@ -24,6 +26,11 @@ int main(void) {
 
 	adc_wrapper_t joystick_y;
 	adc_wrapper_init(&joystick_y, JOYSTICK_Y_INPUT, JOYSTICK_Y_PIN);
+
+	buzzer_t bz;
+	buzzer_init(&bz, BUZZER_PIN);
+
+	buzzer_play(&bz, 440.0f, 500);
 
 	while (true) {
 		uint16_t x_axis = adc_wrapper_read(joystick_x);
