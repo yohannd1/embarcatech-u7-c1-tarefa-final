@@ -16,7 +16,12 @@
 #define JOYSTICK_Y_PIN 26
 #define JOYSTICK_Y_INPUT 0
 
-static float notes[24] = { 0.0f };
+#define MUS_NOTE_COUNT 24
+#define MUS_BASE_FREQ 261.6f // C-4
+
+// Mapa de nota->frequência. A i-ésima casa é a nota a i semitons de
+// MUS_BASE_FREQ.
+static float notes[MUS_NOTE_COUNT] = { 0.0f };
 
 static void calc_joystick(uint16_t x_axis_raw, uint16_t y_axis_raw, float *angle, float *magnitude);
 
@@ -30,11 +35,13 @@ int main(void) {
 	adc_wrapper_init(&joystick_x, JOYSTICK_X_INPUT, JOYSTICK_X_PIN);
 	adc_wrapper_init(&joystick_y, JOYSTICK_Y_INPUT, JOYSTICK_Y_PIN);
 
+	// inicializar as notas
+	for (int i = 0; i < MUS_NOTE_COUNT; i++)
+		notes[i] = MUS_BASE_FREQ * powf(2.0f, (float)i / 12.0f);
+
 	// inicializar o buzzer
 	buzzer_t bz;
 	buzzer_init(&bz, BUZZER_PIN);
-
-	// buzzer_play(&bz, 440.0f, 500);
 
 	while (true) {
 		uint16_t x_axis_raw = adc_wrapper_read(joystick_x);
@@ -44,12 +51,14 @@ int main(void) {
 		calc_joystick(x_axis_raw, y_axis_raw, &angle, &magnitude);
 
 		if (magnitude > 0.45f) {
-			float note = angle / (2.0f * M_PI) * 12.0f;
+			uint32_t note = angle / (2.0f * M_PI) * 12.0f;
+			float freq = notes[note];
+			printf("%.5f, %.5f pi rad (note %u, freq=%.2f)\n", magnitude, angle / M_PI, note, freq);
 
-			printf("%.5f, %.5f pi rad (note %.2f)\n", magnitude, angle / M_PI, note);
+			buzzer_play(&bz, freq, 500);
+		} else {
+			sleep_ms(500);
 		}
-
-		sleep_ms(500);
 	}
 
 	return 0;
