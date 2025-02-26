@@ -32,6 +32,7 @@ add_executable(${PROJECT}
     src/utils.c
     src/adc_wrapper.c
     src/buzzer.c
+    src/ssd1306.c
 )
 
 pico_set_program_name(${PROJECT} "${PROJECT}")
@@ -48,8 +49,7 @@ target_link_libraries(${PROJECT}
     pico_stdlib
     hardware_adc
     hardware_pwm
-    # hardware_i2c
-    # hardware_timer
+    hardware_i2c
 )
 
 pico_add_extra_outputs(${PROJECT})

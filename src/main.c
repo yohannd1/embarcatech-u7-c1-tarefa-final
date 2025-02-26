@@ -9,19 +9,30 @@
 #include "utils.h"
 #include "adc_wrapper.h"
 #include "buzzer.h"
+#include "ssd1306.h"
 
 #define BUZZER_PIN 21
+
 #define JOYSTICK_X_PIN 27
 #define JOYSTICK_X_INPUT 1
 #define JOYSTICK_Y_PIN 26
 #define JOYSTICK_Y_INPUT 0
 
+// Configuração dos botões
 #define BUTTON_A_PIN 5
 #define BUTTON_B_PIN 6
 #define BUTTON_J_PIN 22
 #define DEBOUNCING_TIME_US 200000
 
+// Configuração do display ssd1306
+#define DISPLAY_SDA_PIN 14
+#define DISPLAY_SCL_PIN 15
+#define DISPLAY_I2C_PORT i2c1
+#define DISPLAY_WIDTH 128
+#define DISPLAY_HEIGHT 64
+
 #define MUS_NOTE_COUNT 96
+#define MUS_BASE_OCTAVE 2 // C-2
 #define MUS_BASE_FREQ (261.6f / 4.0f) // C-2
 
 const float BASE_SPEED_HZ = 60.0f;
@@ -40,6 +51,8 @@ static volatile _Atomic uint16_t base_note = 24;
 
 static void calc_joystick(uint16_t x_axis_raw, uint16_t y_axis_raw, float *angle, float *magnitude);
 static void on_press(uint gpio, uint32_t events);
+static const char *getNoteLetter(uint16_t note);
+static uint8_t getNoteOctave(uint16_t note);
 
 int main(void) {
 	stdio_init_all();
@@ -78,10 +91,29 @@ int main(void) {
 	gpio_set_irq_enabled_with_callback(BUTTON_A_PIN, GPIO_IRQ_EDGE_FALL, true, &on_press);
 	gpio_set_irq_enabled_with_callback(BUTTON_J_PIN, GPIO_IRQ_EDGE_FALL, true, &on_press);
 
+	// inicializar o display
+	i2c_init(DISPLAY_I2C_PORT, 400000); // 400KHz
+	gpio_set_function(DISPLAY_SDA_PIN, GPIO_FUNC_I2C);
+	gpio_set_function(DISPLAY_SCL_PIN, GPIO_FUNC_I2C);
+	gpio_pull_up(DISPLAY_SDA_PIN);
+	gpio_pull_up(DISPLAY_SCL_PIN);
+
+	// inicializar o display
+	ssd1306_t display;
+	if (!ssd1306_init(&display, DISPLAY_WIDTH, DISPLAY_HEIGHT, false, 0x3C, DISPLAY_I2C_PORT))
+		utils_panicf("falha ao inicializar o display OLED");
+
+	// limpar o display
+	ssd1306_fill(&display, 0);
+	ssd1306_send_data(&display);
+
+	char lines[2][32] = { "-- EmbarcaTech --", {0} };
+
 	while (true) {
 		// verificar se o botão B está pressionado
 		bool should_play = !gpio_get(BUTTON_B_PIN);
 
+		// captura de dados do joystick e controle do buzzer
 		if (should_play) {
 			uint16_t x_axis_raw = adc_wrapper_read(joystick_x);
 			uint16_t y_axis_raw = adc_wrapper_read(joystick_y);
@@ -98,7 +130,12 @@ int main(void) {
 					note = MUS_NOTE_COUNT - 1;
 
 				float freq = notes[note];
-				printf("%.5f, %.5f pi rad (note %u, freq=%.2f)\n", magnitude, angle / M_PI, note, freq);
+
+				// mostrar informações de debug no serial
+				printf("%.5f, %.5f pi rad (nota %u, freq %.2f Hz)\n", magnitude, angle / M_PI, note, freq);
+
+				// gerar texto para a tela
+				snprintf(lines[1], 32, "Nota: %s%u", getNoteLetter(note), getNoteOctave(note));
 
 				buzzer_start(&bz, freq);
 			} else {
@@ -107,6 +144,17 @@ int main(void) {
 		} else {
 			buzzer_stop(&bz);
 		}
+
+		// controle do display
+		ssd1306_fill(&display, 1);
+		ssd1306_rect(&display, 3, 3, 122, 58, 0, true);
+
+		uint8_t x = 10, y = 10;
+		ssd1306_draw_string(&display, lines[0], &x, &y);
+		x = 10, y += 8;
+		ssd1306_draw_string(&display, lines[1], &x, &y);
+
+		ssd1306_send_data(&display);
 
 		sleep_us(BASE_PERIOD_US);
 	}
@@ -152,4 +200,13 @@ static void on_press(uint gpio, uint32_t events) {
 	});
 
 #undef DEBOUNCE_AND_DO
+}
+
+static const char *getNoteLetter(uint16_t note) {
+	const char *notes[12] = { "C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-" };
+	return notes[note % 12];
+}
+
+static uint8_t getNoteOctave(uint16_t note) {
+	return (note / 12) + MUS_BASE_OCTAVE;
 }
