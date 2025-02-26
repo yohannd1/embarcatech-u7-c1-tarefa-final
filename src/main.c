@@ -19,20 +19,24 @@
 #define BUTTON_A_PIN 5
 #define BUTTON_B_PIN 6
 #define BUTTON_J_PIN 22
-#define DEBOUNCING_TIME_US 22000
+#define DEBOUNCING_TIME_US 200000
 
-#define MUS_NOTE_COUNT 24
-#define MUS_BASE_FREQ 261.6f // C-4
+#define MUS_NOTE_COUNT 96
+#define MUS_BASE_FREQ (261.6f / 4.0f) // C-2
 
 const float BASE_SPEED_HZ = 60.0f;
 const float BASE_PERIOD_US = 1000000.0f / BASE_SPEED_HZ;
 
-// magnitude mínima do vetor do joystick para reconhecimento de uma nota
+// Magnitude mínima do vetor do joystick para reconhecimento de uma nota
 const float MIN_MAGNITUDE = 0.45f;
 
-// mapa de nota->frequência, onde a i-ésima casa é a nota i semitons acima de
+// Mapa de nota->frequência, onde a i-ésima casa é a nota i semitons acima de
 // MUS_BASE_FREQ.
 static float notes[MUS_NOTE_COUNT] = { 0.0f };
+
+// Nota utilizada como base para as notas tocadas. Para subir uma oitava,
+// adiciona-se 12, e para diminuir subtrai-se 12.
+static volatile _Atomic uint16_t base_note = 24;
 
 static void calc_joystick(uint16_t x_axis_raw, uint16_t y_axis_raw, float *angle, float *magnitude);
 static void on_press(uint gpio, uint32_t events);
@@ -87,7 +91,12 @@ int main(void) {
 			calc_joystick(x_axis_raw, y_axis_raw, &angle, &magnitude);
 
 			if (magnitude > MIN_MAGNITUDE) {
-				uint32_t note = angle / (2.0f * M_PI) * 12.0f;
+				uint16_t note = base_note + angle / (2.0f * M_PI) * 12.0f;
+
+				// se a nota for alta demais, limitar
+				if (note >= MUS_NOTE_COUNT)
+					note = MUS_NOTE_COUNT - 1;
+
 				float freq = notes[note];
 				printf("%.5f, %.5f pi rad (note %u, freq=%.2f)\n", magnitude, angle / M_PI, note, freq);
 
@@ -128,13 +137,19 @@ static void on_press(uint gpio, uint32_t events) {
 		} \
 	}
 
-	DEBOUNCE_AND_DO(BUTTON_A_PIN, last_time_a, {});
+	DEBOUNCE_AND_DO(BUTTON_A_PIN, last_time_a, {
+		// Subir uma oitava quando o botão A é pressionado.
+		base_note += 12;
+	});
 
 	// O estado do botão B não é verificado aqui porque ele se encaixa melhor no
 	// loop principal.
 	// DEBOUNCE_AND_DO(BUTTON_B_PIN, last_time_b, {});
 
-	DEBOUNCE_AND_DO(BUTTON_J_PIN, last_time_j, {});
+	DEBOUNCE_AND_DO(BUTTON_J_PIN, last_time_j, {
+		// Descer uma oitava quando o botão J é pressionado.
+		if (base_note >= 12) base_note -= 12;
+	});
 
 #undef DEBOUNCE_AND_DO
 }
