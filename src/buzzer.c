@@ -28,13 +28,19 @@ void buzzer_deinit(buzzer_t *bz) {
 }
 
 void buzzer_play(buzzer_t *bz, float frequency, uint duration_ms) {
+	buzzer_start(bz, frequency);
+	sleep_ms(duration_ms);
+	buzzer_stop(bz);
+}
+
+void buzzer_start(buzzer_t *bz, float frequency) {
 	uint32_t clock_freq = clock_get_hz(clk_sys);
 	uint32_t wrap = (uint32_t)(clock_freq / (clock_div * frequency) - 1.0f);
 
 	pwm_set_wrap(bz->slice, wrap);
 	pwm_set_gpio_level(bz->pin, wrap * 0.5f);
+}
 
-	sleep_ms(duration_ms);
-
+void buzzer_stop(buzzer_t *bz) {
 	pwm_set_gpio_level(bz->pin, 0);
 }
