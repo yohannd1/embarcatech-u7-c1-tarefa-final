@@ -4,9 +4,9 @@
 
 #include "buzzer.h"
 
-// current strategy: when the clock is at 125MHz, a 250 divisor makes it so the
-// frequency is 500KHz/(wrap+1), and since the max wrap+1 value is 65536, our
-// range is 7Hz to 500KHz.
+// estratégia: quando o clock está a 125MHz, um divisor de 250 faz com que a
+// frequência do PWM seja de 500KHz/(wrap+1), e já que o valor máximo para
+// wrap+1 é 65536, o intervalo possível é entre 7Hz e 500KHz.
 const float clock_div = 250.0f;
 
 void buzzer_init(buzzer_t *bz, uint pin) {
@@ -19,7 +19,7 @@ void buzzer_init(buzzer_t *bz, uint pin) {
 	pwm_config_set_clkdiv(&config, clock_div);
 	pwm_init(bz->slice, &config, true);
 
-	pwm_set_gpio_level(bz->pin, 0); // initially turn off PWM
+	pwm_set_gpio_level(bz->pin, 0); // inicialmente "desligar" o PWM
 }
 
 void buzzer_deinit(buzzer_t *bz) {
